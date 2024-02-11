@@ -65,5 +65,6 @@ RUN go mod download &&\
 ADD --chown=builder:builder builder-dispatcher .
 ADD --chown=builder:builder builder-bashrc /home/builder/.bashrc
 
+RUN git config --global --add safe.directory /veraison/build
 ENTRYPOINT ["/veraison/builder-dispatcher"]
 CMD ["help"]

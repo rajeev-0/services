@@ -16,11 +16,11 @@ RUN apt-get update \
 RUN groupadd -g 616 veraison && \
     useradd -m  -g veraison  --system veraison
 
-USER veraison
-
 WORKDIR /opt/veraison
 
-RUN mkdir logs
+RUN mkdir logs && chown veraison:veraison logs
+
+USER veraison
 
 ADD --chown=veraison:nogroup config.yaml verification-service service-entrypoint ./
 

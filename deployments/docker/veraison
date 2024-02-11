@@ -44,8 +44,8 @@ function start() {
     local what=$1
 
     if [[ "x$what" == "x" ]]; then
-        start_keycloak
         start_vts
+        start_keycloak
         sleep 0.5 # wait for vts to start before starting the services that depend on it.
         start_provisioning
         start_verification
@@ -183,6 +183,7 @@ function manager() {
 function manager_debug() {
     docker container run --rm -t -i\
 	    --network veraison-net \
+        --userns=keep-id \
             -v ${STORES_VOLUME}:/opt/veraison/stores \
             -v ${LOGS_VOLUME}:/opt/veraison/logs \
             -v /:/opt/veraison/hostroot \

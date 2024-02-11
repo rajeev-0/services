@@ -56,7 +56,7 @@ build: .built/build
 
 .built/build: .built/builder
 	docker container run --rm \
-		-v $(THIS_DIR)../..:/veraison/build veraison/builder build
+		--userns=keep-id -v $(THIS_DIR)../..:/veraison/build veraison/builder build
 	@mkdir -p .built && touch .built/build
 
 .PHONY: deploy
@@ -68,7 +68,7 @@ deploy: .built/deploy
 		mkdir -p $(DEPLOY_DEST); \
 	fi
 	docker container run --rm \
-		-v $(THIS_DIR)../..:/veraison/build -v $(DEPLOY_DEST):/veraison/deploy \
+		--userns=keep-id -v $(THIS_DIR)../..:/veraison/build -v $(DEPLOY_DEST):/veraison/deploy \
 		veraison/builder deploy
 	@mkdir -p .built && touch .built/deploy
 
@@ -76,7 +76,7 @@ deploy: .built/deploy
 debug: .built/builder .built/network
 	docker container run --rm \
 		--network $(VERAISON_NETWORK) \
-		-v $(STORES_VOLUME):/veraison/stores -v $(LOGS_VOLUME):/veraison/logs \
+		--userns=keep-id -v $(STORES_VOLUME):/veraison/stores -v $(LOGS_VOLUME):/veraison/logs \
 		-v $(THIS_DIR)../..:/veraison/build -v $(DEPLOY_DEST):/veraison/deploy \
 		$(DEBUG_FLAGS) $(DEBUG_PORT_FLAG) --hostname $(DEBUG_HOST)\
 		-i -t --user $(DEBUG_USER) --entrypoint /bin/bash \
@@ -88,8 +88,8 @@ services:
 	@# image targets (possibly because of the need to recursively resolve %,
 	@# but I haven't looked too much into it). Recursively calling $(MAKE) here
 	@# resolves the issue.
-	$(MAKE) .built/keycloak-container .built/vts-container .built/provisioning-container \
-		.built/verification-container .built/management-container
+	$(MAKE) .built/vts-container .built/provisioning-container \
+		.built/verification-container .built/management-container .built/keycloak-container
 
 .PHONY: vts
 vts: deploy .built/vts-container
@@ -129,7 +129,10 @@ network: .built/network
 	@# Before rebuilding the image, remove any containers that were based
 	@# on the previous version.
 	@# The "nil" ensures the command doesn't fail due to an empty argument list.
-	docker rm -f $(shell docker ps -a -q --filter "ancestor=veraison/$*") nil 2>/dev/null
+	@prev=$(shell docker ps -a -q --filter "ancestor=veraison/$*")
+	@if [[ "x$(prev)" != "x" ]]; then \
+		docker rm -f $(prev) 2>/dev/null; \
+	fi
 	@
 	DOCKER_BUILDKIT=1 docker build $(DOCKER_BUILD_FLAGS) \
 		-t veraison/$* $(DEPLOY_DEST) -f $(SRC_DIR)$*.docker
@@ -137,7 +140,7 @@ network: .built/network
 
 .built/%-container: .built/%-image .built/network
 	docker container create --tty --name $*-service --hostname $*-service \
-		$($*_FLAGS) \
+		--userns=keep-id $($*_FLAGS) \
 		--network $(VERAISON_NETWORK) \
 		-v $(LOGS_VOLUME):/opt/veraison/logs veraison/$*
 	@mkdir -p .built && touch .built/$*-container
@@ -171,7 +174,7 @@ prune:
 clean:
 	if [[ "x$(shell docker image ls | grep veraison/builder)" != "x" ]]; then \
 	docker container run --rm \
-		-v $(THIS_DIR)../..:/veraison/build veraison/builder clean; \
+		--userns=keep-id -v $(THIS_DIR)../..:/veraison/build veraison/builder clean; \
 		rm -f .built/build; \
 	fi
 
